@@ -1,3 +1,5 @@
+//Authors: Ankush Joshi and Alex Medal 
+//CPE301 Final Lab Code
 
 #include <LiquidCrystal.h>
 #include <DHT.h>
@@ -25,7 +27,7 @@ volatile unsigned int* MY_ADC_DATA = (unsigned int*) 0x78;
 volatile unsigned char* portPinA = (unsigned char*) 0x20;
 volatile unsigned char* portA = (unsigned char*) 0x22;
 volatile unsigned char* portC = (unsigned char*) 0x28;
-volatile unsigned ddrC = (unsigned char*) 0x27;
+volatile unsigned char* ddrC = (unsigned char*) 0x27;
 
 //UART Register Initialization 
 volatile unsigned char* MY_UCSR0A = (unsigned char*)0x00C0;
@@ -57,7 +59,7 @@ void loop(){
     *portC &= ~0b01000000;
   }
 
-  bool left = (*portC & 0b00010000), right = !(portC & 0b00010000);
+  bool left = (*portC & 0b00010000), right = !(*portC & 0b00010000);
 
   
   if(*portC & 0b00000100){
@@ -100,7 +102,7 @@ void LCD(){
   lcd.clear();
   lcd.setCursor(0,0);
   lcd.print("Temp: ");
-  lcd.print(temperature)
+  lcd.print(temperature);
   lcd.print("C");
   lcd.print(0,1);
   lcd.print("Humidity: ");
@@ -108,21 +110,14 @@ void LCD(){
   lcd.print("%");
 }
 
-void U0init(unsigned long U0baud){
-  unsigned long FCPU = 16000000;
-  unsigned int tbaud = (FCPU / (16 * U0baud)) - 1;
-  *MY_UCSR0A = 0x20;
-  *MY_UCSR0B = 0x18;
-  *MY_UCSR0C = 0x06;
-  *MY_UBRR0  = tbaud;
-}
+
 
 void adcInit(){
   //setting up A register
-  *my_ADCSRA |= 0b10000000; 
-  *my_ADCSRA &= 0b10111111; 
-  *my_ADCSRA &= 0b11011111; 
-  *my_ADCSRA &= 0b11011111; 
+  *MY_ADCSRA |= 0b10000000; 
+  *MY_ADCSRA &= 0b10111111; 
+  *MY_ADCSRA &= 0b11011111; 
+  *MY_ADCSRA &= 0b11011111; 
 
   //setting up B register
   *MY_ADCSRB &= 0b11110111;
@@ -137,29 +132,39 @@ void adcInit(){
 }
 
 unsigned int adcRead(unsigned char adcChannelNum){
-  *_ADMUX = (0x40 | adcChannelNum); 
-  *my_ADCSRA = 0x87;
+  *MY_ADMUX = (0x40 | adcChannelNum); 
+  *MY_ADCSRA = 0x87;
   while ((*MY_ADCSRA) & (1 << ADSC)) {}
   int adcValue = *MY_ADC_DATA;
-  *my_ADCSRA = 0x00; 
+  *MY_ADCSRA = 0x00; 
   return adcValue;
 }
 
 void myDelay(unsigned int freq) {
-  double period = 1.0/double(freq);
-  double half_period = period/ 2.0f;
-  double clk_period = 0.0000000625;
-  unsigned int ticks = half_period / clk_period;
-  *MY_TCCR1B &= 0xF8;
-  *MY_TCNT1 = (unsigned int) (65536 - ticks);
-  *MY_TCCR1B |= 0b00000001;
-  while((*MY_TIFR1 & 0x01)==0); 
+  double period = 1.0/double(freq); //calculation period
+  double half_period = period/ 2.0f; //half duty cycle 
+  double clk_period = 0.0000000625; // clock period definition
+  unsigned int ticks = half_period / clk_period; 
+  *MY_TCCR1B &= 0xF8; //stopping timer
+  *MY_TCNT1 = (unsigned int) (65536 - ticks); //set counts
+  *MY_TCCR1B |= 0b00000001; //start timer
+  while((*MY_TIFR1 & 0x01)==0);  //wait for overflow
   *MY_TCCR1B &= 0xF8;   
   *MY_TIFR1 |= 0x01;
 }
 
+//UART functions
+void U0init(unsigned long U0baud){
+  unsigned long FCPU = 16000000;
+  unsigned int tbaud = (FCPU / (16 * U0baud)) - 1;
+  *MY_UCSR0A = 0x20;
+  *MY_UCSR0B = 0x18;
+  *MY_UCSR0C = 0x06;
+  *MY_UBRR0  = tbaud;
+}
+
 unsigned char U0kbhit(){
-  return(*my_UCSR0A & RDA);
+  return(*MY_UCSR0A & RDA);
 }
 
 unsigned char U0getChar(){
@@ -170,6 +175,3 @@ void U0putChar(unsigned char U0pData){
   while((*MY_UCSR0A &= TBE) == 0){};
   *MY_UDR0 = U0pData;
 }
-
-
-
